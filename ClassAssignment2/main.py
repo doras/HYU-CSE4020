@@ -2,8 +2,6 @@ import numpy as np
 import glfw
 from OpenGL.GL import *
 from OpenGL.GLU import *
-
-
 import math
 
 gAzimuth = np.radians(45)
@@ -23,6 +21,55 @@ gForcedShading = False # whether forced shading is on or off
 gRenderMode = GL_FILL # whether render mode is solid or wireframe
 gVertexNormalarr = None
 
+def area(v1, v2, v3):
+    v = v2 - v1
+    w = v3 - v1
+
+    return np.linalg.norm(np.cross(v,w)) / 2
+
+def inside(v1, v2, v3, v):
+    total = area(v1,v2,v3)
+    a1 = area(v, v2, v3)
+    a2 = area(v1, v, v3)
+    a3 = area(v1, v2, v)
+
+    return math.isclose(total, a1 + a2 + a3)
+
+def convex(center,v2,v3):
+    v = v2 - center
+    w = v3 - center
+
+    return np.linalg.norm(np.cross(v,w)) > 0
+
+def triangulation(tuples):
+    global gVarr
+
+    tuples = list(tuples)
+
+    triangleSet = list()
+
+
+
+    while len(tuples) > 3:
+        numOfIndices = len(tuples)
+        for idx, vindex in enumerate(tuples):
+            if convex(gVarr[vindex[0]], gVarr[tuples[idx - 1][0]], gVarr[tuples[(idx + 1) % numOfIndices][0]]):
+                ear = True
+                for i, v in enumerate(tuples):
+                    if i != idx and i != (idx - 1) % numOfIndices and i != (idx + 1) % numOfIndices:
+                        if inside(gVarr[vindex[0]], gVarr[tuples[idx - 1][0]], gVarr[tuples[(idx + 1) % numOfIndices][0]], gVarr[v[0]]):
+                            ear = False
+                            break
+                if ear:
+                    # print('ear',vindex)
+                    triangleSet.append((tuples[idx - 1], vindex, tuples[(idx + 1) % numOfIndices]))
+                    tuples.pop(idx)
+                    break
+
+    triangleSet.append(tuples)
+
+    return triangleSet
+
 def setup_smooth_shading():
     global gVarrdup, gVertexNormalarr, gVarr, gIarr
 
@@ -40,13 +87,13 @@ def setup_smooth_shading():
     for idx, norm in enumerate(gVertexNormalarr):
         gVertexNormalarr[idx] = norm / np.linalg.norm(norm)
     
-    print(gVertexNormalarr)
+    # print(gVertexNormalarr)
 
 def drop_callback(window, paths):
     global gVarr, gIarr, gVNarr, gNIarr, gNarr, gVarrdup, gVertexNormalarr
     f = open(paths[0], 'r')
 
-    gVarr = list()
+    gVarr = np.empty((0,3), 'float32')
     gVNarr = list()
     gIarr = list()
     gNIarr = list()
@@ -66,7 +113,7 @@ def drop_callback(window, paths):
             continue
         
         if fields[0] == 'v':
-            gVarr.append(tuple(float(x) for x in fields[1:]))
+            gVarr = np.append(gVarr, np.array([tuple(float(x) for x in fields[1:])], 'float32'), axis=0)
         elif fields[0] == 'vn':
             gVNarr.append(tuple(float(x) for x in fields[1:]))
         elif fields[0] == 'f':
@@ -90,15 +137,24 @@ def drop_callback(window, paths):
                 else:
                     indexItem.append(int(indices[0]) - 1)
                     normalIndexItem.append(int(indices[2]) - 1)
-            gIarr.append(indexItem)
-            gNIarr.append(normalIndexItem)
 
 
+            if numVertex == 3:
+                gIarr.append(indexItem)
+                gNIarr.append(normalIndexItem)
+            else:
+                triangleSet = triangulation(zip(indexItem, normalIndexItem))
 
-    gVarrdup = list()
+
+                for x in triangleSet:
+                    items = list(zip(*x))
+                    gIarr.append(items[0])
+                    gNIarr.append(items[1])
+
+
+    gVarrdup = np.empty((0,3,3), 'float32')
     for indices in gIarr:
-        gVarrdup.append(list(gVarr[n] for n in indices))
-    gVarrdup = np.array(gVarrdup, 'float32')
+        gVarrdup = np.append(gVarrdup, np.array([list(gVarr[n] for n in indices)], 'float32'), axis=0)
 
     if not notNormal:
         gNarr = list()
@@ -106,7 +162,6 @@ def drop_callback(window, paths):
             gNarr.append(list(gVNarr[n] for n in indices))
         gNarr = np.array(gNarr, 'float32')
     
-    gVarr = np.array(gVarr, 'float32')
     gIarr = np.array(gIarr)
 
 
@@ -114,12 +169,6 @@ def drop_callback(window, paths):
             'Number of faces with 3 vertices: %d' % triFaceCount, 
             'Number of faces with 4 vertices: %d' % quadFaceCount, 
             'Number of faces with more than 4 vertices: %d' % nFaceCount, sep='\n')
-
-    # print('notNormal:', notNormal)
-    # print('gVarr: ', gVarr)
-    # print('gNarr: ', gNarr)
-    # print('gIarr: ', gIarr)
-    # print('gVarrdup: ', gVarrdup)
 
     f.close()
 
@@ -211,44 +260,19 @@ def render():
     if gRenderMode == GL_FILL:
         glEnable(GL_LIGHTING)
 
-        # glEnable(GL_LIGHT0)
-        # # glEnable(GL_LIGHT1)
-        # glEnable(GL_LIGHT2)
-        # # glEnable(GL_LIGHT3)
-        # glEnable(GL_LIGHT4)
-        # # glEnable(GL_LIGHT5)
+        glEnable(GL_LIGHT5)
         glEnable(GL_LIGHT6)
         glEnable(GL_NORMALIZE)
 
-        glLightfv(GL_LIGHT0, GL_POSITION, (1., 0., 0., 0.))
-        glLightfv(GL_LIGHT1, GL_POSITION, (-1., 0., 0., 0.))
-        glLightfv(GL_LIGHT2, GL_POSITION, (0., 1., 0., 0.))
-        glLightfv(GL_LIGHT3, GL_POSITION, (0., -1., 0., 0.))
-        glLightfv(GL_LIGHT4, GL_POSITION, (0., 0., 1., 0.))
-        glLightfv(GL_LIGHT5, GL_POSITION, (0., 0., -1., 0.))
+        glLightfv(GL_LIGHT5, GL_POSITION, (-1., -1., -1., 0.))
         glLightfv(GL_LIGHT6, GL_POSITION, (1., 1., 1., 0.))
 
-        glLightfv(GL_LIGHT0, GL_AMBIENT, (.1, .1, .1, 1.))
-        glLightfv(GL_LIGHT1, GL_AMBIENT, (.1, .1, .1, 1.))
-        glLightfv(GL_LIGHT2, GL_AMBIENT, (.1, .1, .1, 1.))
-        glLightfv(GL_LIGHT3, GL_AMBIENT, (.1, .1, .1, 1.))
-        glLightfv(GL_LIGHT4, GL_AMBIENT, (.1, .1, .1, 1.))
         glLightfv(GL_LIGHT5, GL_AMBIENT, (.1, .1, .1, 1.))
         glLightfv(GL_LIGHT6, GL_AMBIENT, (.1, .1, .1, 1.))
 
-        glLightfv(GL_LIGHT0, GL_DIFFUSE, (1., 1., 1., 1.))
-        glLightfv(GL_LIGHT1, GL_DIFFUSE, (1., 1., 1., 1.))
-        glLightfv(GL_LIGHT2, GL_DIFFUSE, (1., 1., 1., 1.))
-        glLightfv(GL_LIGHT3, GL_DIFFUSE, (1., 1., 1., 1.))
-        glLightfv(GL_LIGHT4, GL_DIFFUSE, (1., 1., 1., 1.))
         glLightfv(GL_LIGHT5, GL_DIFFUSE, (1., 1., 1., 1.))
         glLightfv(GL_LIGHT6, GL_DIFFUSE, (1., 1., 1., 1.))
 
-        glLightfv(GL_LIGHT0, GL_SPECULAR, (1., 1., 1., 1.))
-        glLightfv(GL_LIGHT1, GL_SPECULAR, (1., 1., 1., 1.))
-        glLightfv(GL_LIGHT2, GL_SPECULAR, (1., 1., 1., 1.))
-        glLightfv(GL_LIGHT3, GL_SPECULAR, (1., 1., 1., 1.))
-        glLightfv(GL_LIGHT4, GL_SPECULAR, (1., 1., 1., 1.))
         glLightfv(GL_LIGHT5, GL_SPECULAR, (1., 1., 1., 1.))
         glLightfv(GL_LIGHT6, GL_SPECULAR, (1., 1., 1., 1.))
 
@@ -259,10 +283,6 @@ def render():
 
     glEnableClientState(GL_VERTEX_ARRAY)
     glEnableClientState(GL_NORMAL_ARRAY)
-
-    # glNormalPointer(GL_FLOAT, 3*gNarr.itemsize, gNarr)
-    # glVertexPointer(3, GL_FLOAT, 3*gVarr.itemsize, gVarr)
-    # glDrawElements(GL_TRIANGLES, gIarr.size, GL_UNSIGNED_INT, gIarr)
 
     if gForcedShading and gVarr is not None:
         if gVertexNormalarr is None:
