@@ -61,7 +61,6 @@ def triangulation(tuples):
                             ear = False
                             break
                 if ear:
-                    # print('ear',vindex)
                     triangleSet.append((tuples[idx - 1], vindex, tuples[(idx + 1) % numOfIndices]))
                     tuples.pop(idx)
                     break
@@ -86,8 +85,6 @@ def setup_smooth_shading():
         
     for idx, norm in enumerate(gVertexNormalarr):
         gVertexNormalarr[idx] = norm / np.linalg.norm(norm)
-    
-    # print(gVertexNormalarr)
 
 def drop_callback(window, paths):
     global gVarr, gIarr, gVNarr, gNIarr, gNarr, gVarrdup, gVertexNormalarr
