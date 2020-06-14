@@ -261,7 +261,7 @@ def main():
 
     if not glfw.init():
         return
-    window = glfw.create_window(640, 640, "2018008659", None, None)
+    window = glfw.create_window(1000, 1000, "2018008659", None, None)
     if not window:
         glfw.terminate()
         return
