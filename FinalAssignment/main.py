@@ -16,6 +16,12 @@ gSphereNarr = None # vertex array for Sphere with duplicate for glDrawArrays fun
 gCubeVarr = None # actual normal array for Cube with duplicate for glDrawArrays function
 gCubeNarr = None # vertex array for Cube with duplicate for glDrawArrays function
 
+gDogCurrPos = np.array([10., 0., 0.])
+gDogCurrPos2 = np.array([0., 0., 15.])
+gMainTrans = np.identity(4)
+
+gViewMode = 0 # 0 is mouse, 1 is FPS, 2 is Quarter
+
 def drawSphere():
     global gSphereVarr, gSphereNarr
     glEnableClientState(GL_VERTEX_ARRAY)
@@ -37,7 +43,6 @@ def drawCube():
         glNormalPointer(GL_FLOAT, 3*gCubeNarr.itemsize, gCubeNarr)
         glVertexPointer(3, GL_FLOAT, 3*gCubeVarr.itemsize, gCubeVarr)
         glDrawArrays(GL_TRIANGLES, 0, int(gCubeVarr.size/3))
-
 
 def openObj(path):
     f = open(path, 'r')
@@ -124,7 +129,182 @@ def mouse_button_callback(window, button, action, mods):
             gMouseMode = 0
 
 def key_callback(window, key, scancode, action, mods):
-    pass
+    global gMainTrans, gViewMode
+    if action==glfw.PRESS or action==glfw.REPEAT:
+        if key==glfw.KEY_Q:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., -1.],
+                                                [0., 1., 0., 0.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_W:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 1.],
+                                                [0., 1., 0., 0.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_A:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [0., 1., 0., -1.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_S:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [0., 1., 0., 1.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_Z:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [0., 1., 0., 0.],
+                                                [0., 0., 1., -1.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_X:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [0., 1., 0., 0.],
+                                                [0., 0., 1., 1.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_E:
+            ang = np.radians(-10)
+            gMainTrans = gMainTrans @ np.array([[1., 0.,           0.,          0.],
+                                                [0., np.cos(ang), -np.sin(ang), 0.],
+                                                [0., np.sin(ang),  np.cos(ang), 0.],
+                                                [0., 0.,           0.,          1.]])
+        elif key==glfw.KEY_R:
+            ang = np.radians(10)
+            gMainTrans = gMainTrans @ np.array([[1., 0.,           0.,          0.],
+                                                [0., np.cos(ang), -np.sin(ang), 0.],
+                                                [0., np.sin(ang),  np.cos(ang), 0.],
+                                                [0., 0.,           0.,          1.]])
+        elif key==glfw.KEY_D:
+            ang = np.radians(-10)
+            gMainTrans = gMainTrans @ np.array([[np.cos(ang),  0., np.sin(ang), 0.],
+                                                [0.,           1., 0.,          0.],
+                                                [-np.sin(ang), 0., np.cos(ang), 0.],
+                                                [0.,           0., 0.,          1.]])
+        elif key==glfw.KEY_F:
+            ang = np.radians(10)
+            gMainTrans = gMainTrans @ np.array([[np.cos(ang),  0., np.sin(ang), 0.],
+                                                [0.,           1., 0.,          0.],
+                                                [-np.sin(ang), 0., np.cos(ang), 0.],
+                                                [0.,           0., 0.,          1.]])
+        elif key==glfw.KEY_C:
+            ang = np.radians(-10)
+            gMainTrans = gMainTrans @ np.array([[np.cos(ang), -np.sin(ang), 0., 0.],
+                                                [np.sin(ang),  np.cos(ang), 0., 0.],
+                                                [0.,           0.,          1., 0.],
+                                                [0.,           0.,          0., 1.]])
+        elif key==glfw.KEY_V:
+            ang = np.radians(10)
+            gMainTrans = gMainTrans @ np.array([[np.cos(ang), -np.sin(ang), 0., 0.],
+                                                [np.sin(ang),  np.cos(ang), 0., 0.],
+                                                [0.,           0.,          1., 0.],
+                                                [0.,           0.,          0., 1.]])
+        elif key==glfw.KEY_T:
+            gMainTrans = gMainTrans @ np.array([[1., -.1, 0., 0.],
+                                                [0., 1., 0., 0.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_Y:
+            gMainTrans = gMainTrans @ np.array([[1., .1, 0., 0.],
+                                                [0., 1., 0., 0.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_U:
+            gMainTrans = gMainTrans @ np.array([[1., 0., -.1, 0.],
+                                                [0., 1., 0., 0.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_I:
+            gMainTrans = gMainTrans @ np.array([[1., 0., .1, 0.],
+                                                [0., 1., 0., 0.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_G:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [-.1, 1., 0., 0.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_H:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [.1, 1., 0., 0.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_J:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [0., 1., -.1, 0.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_K:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [0., 1., .1, 0.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_B:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [0., 1., 0., 0.],
+                                                [-.1, 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_N:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [0., 1., 0., 0.],
+                                                [.1, 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_M:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [0., 1., 0., 0.],
+                                                [0., -.1, 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_COMMA:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [0., 1., 0., 0.],
+                                                [0., .1, 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_O:
+            gMainTrans = gMainTrans @ np.array([[0.9, 0., 0., 0.],
+                                                [0., 1., 0., 0.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_P:
+            gMainTrans = gMainTrans @ np.array([[1.1, 0., 0., 0.],
+                                                [0., 1., 0., 0.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_L:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [0., 0.9, 0., 0.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_SEMICOLON:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [0., 1.1, 0., 0.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_PERIOD:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [0., 1., 0., 0.],
+                                                [0., 0., 0.9, 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_SLASH:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [0., 1., 0., 0.],
+                                                [0., 0., 1.1, 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_1:
+            gMainTrans = gMainTrans @ np.array([[-1., 0., 0., 0.],
+                                                [0., 1., 0., 0.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_2:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [0., -1., 0., 0.],
+                                                [0., 0., 1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_3:
+            gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
+                                                [0., 1., 0., 0.],
+                                                [0., 0., -1., 0.],
+                                                [0., 0., 0., 1.]])
+        elif key==glfw.KEY_0:
+            gViewMode = (gViewMode + 1) % 3
+
 
 def drawGrid():
     global gAt, gDistance
@@ -144,8 +324,8 @@ def drawGrid():
     glDrawArrays(GL_LINES, 0, int(varr2.size / 3))
     
 
-def render():
-    global gAzimuth, gElevation, gDistance, gAt
+def render(t):
+    global gAzimuth, gElevation, gDistance, gAt, gMainTrans, gDogCurrPos, gDogCurrPos2, gViewMode
 
     glPolygonMode( GL_FRONT_AND_BACK, GL_FILL )
 
@@ -161,11 +341,23 @@ def render():
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
 
-    eyePoint = (gDistance*np.cos(gElevation)*np.sin(gAzimuth),gDistance*np.sin(gElevation),gDistance*np.cos(gElevation)*np.cos(gAzimuth)) + gAt
+    if gViewMode == 0:
+        eyePoint = (gDistance*np.cos(gElevation)*np.sin(gAzimuth),gDistance*np.sin(gElevation),gDistance*np.cos(gElevation)*np.cos(gAzimuth)) + gAt
 
-    gluLookAt(*(eyePoint),
-              *(gAt),
-              0,1*(1 - 2 * (np.cos(gElevation) < 0)),0)
+        gluLookAt(*(eyePoint),
+                *(gAt),
+                0,1*(1 - 2 * (np.cos(gElevation) < 0)),0)
+    elif gViewMode == 1:
+        lookMatrix = (gMainTrans @ np.array([[0.,0.,0.],
+                                            [0.,0.,1.],
+                                            [0.,1.,0.],
+                                            [1.,1.,0.]]))[:3]
+        gluLookAt(*lookMatrix.T.reshape(9))
+    elif gViewMode == 2:
+        targetPoint = (gMainTrans @ np.array([0.,0.,0.,1.]))[:3]
+        eyePoint = targetPoint + np.array([10.,10.,10.])
+        gluLookAt(*eyePoint, *targetPoint, 0, 1, 0)
+
 
     drawGrid()
 
@@ -176,8 +368,8 @@ def render():
     glEnable(GL_LIGHT6)
     glEnable(GL_NORMALIZE)
 
-    glLightfv(GL_LIGHT5, GL_POSITION, (-1., -1., -1., 0.))
-    glLightfv(GL_LIGHT6, GL_POSITION, (1., 1., 1., 0.))
+    glLightfv(GL_LIGHT5, GL_POSITION, (1., -1., -.5, 0.))
+    glLightfv(GL_LIGHT6, GL_POSITION, (np.sin(t), 1., np.cos(t), 0.))
 
     glLightfv(GL_LIGHT5, GL_AMBIENT, (.1, .1, .1, 1.))
     glLightfv(GL_LIGHT6, GL_AMBIENT, (.1, .1, .1, 1.))
@@ -188,26 +380,254 @@ def render():
     glLightfv(GL_LIGHT5, GL_SPECULAR, (1., 1., 1., 1.))
     glLightfv(GL_LIGHT6, GL_SPECULAR, (1., 1., 1., 1.))
 
-    glMaterialfv(GL_FRONT, GL_SPECULAR, (1., 1., 1., 1.))
-    glMaterialfv(GL_FRONT, GL_SHININESS, 10)
-    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, (1., 1., 1., 1.))
-
 
     # main object
+    if gViewMode != 1:
+
+        glMaterialfv(GL_FRONT, GL_SPECULAR, (1., 1., 1., 1.))
+        glMaterialfv(GL_FRONT, GL_SHININESS, 10)
+        glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, (0.392156862745098, 0.584313725490196, 0.929411764705882, 1.))
+
+        glPushMatrix()
+        glMultMatrixf(gMainTrans.T)
+
+        # Body
+        glPushMatrix()
+        glScalef(1,2,.5)
+        drawCube()
+        glPopMatrix()
+
+        # head
+        glPushMatrix()
+        glTranslatef(0,3,0)
+        drawSphere()
+        glPopMatrix()
+
+        # left arm
+        glPushMatrix()
+        glTranslatef(1.25, 1.5, 0)
+        glRotatef(30*np.sin(5*t), 1, 0, 0)
+        glTranslatef(0., -1., 0)
+
+        # draw left arm
+        glPushMatrix()
+        glScalef(0.25, 1, 0.25)
+        drawCube()
+        glPopMatrix()
+        # end draw
+
+        # left hand
+        glPushMatrix()
+        glTranslatef(0., -1.25, 0.)
+        glScalef(0.25, 0.25, 0.25)
+        drawSphere()
+        glPopMatrix()
+
+        # end of left arm
+        glPopMatrix()
+
+        # right arm
+        glPushMatrix()
+        glTranslatef(-1.25, 1.5, 0)
+        glRotatef(-30*np.sin(5*t), 1, 0, 0)
+        glTranslatef(0., -1., 0)
+        # draw right arm
+        glPushMatrix()
+        glScalef(0.25, 1, 0.25)
+        drawCube()
+        glPopMatrix()
+        # end draw
+
+        # right hand
+        glPushMatrix()
+        glTranslatef(0., -1.25, 0.)
+        glScalef(0.25, 0.25, 0.25)
+        drawSphere()
+        glPopMatrix()
+
+        # end of right arm
+        glPopMatrix()
+
+
+        # left leg
+        glPushMatrix()
+        glTranslatef(.5, -2., 0)
+        glRotatef(-30*np.sin(5*t), 1, 0, 0)
+        glTranslatef(0., -1., 0)
+
+        # draw leg
+        glPushMatrix()
+        glScalef(.25, 1., .25)
+        drawCube()
+        glPopMatrix()
+
+
+        # left foot
+        glPushMatrix()
+        glTranslatef(0., -1.125, 0.25)
+        glScalef(0.25, 0.125, 0.5)
+        drawCube()
+        glPopMatrix()
+
+        # end of left leg
+        glPopMatrix()
+
+
+        # right leg
+        glPushMatrix()
+        glTranslatef(-.5, -2., 0)
+        glRotatef(30*np.sin(5*t), 1, 0, 0)
+        glTranslatef(0., -1., 0)
+
+        # draw leg
+        glPushMatrix()
+        glScalef(.25, 1., .25)
+        drawCube()
+        glPopMatrix()
+
+
+        # right foot
+        glPushMatrix()
+        glTranslatef(0., -1.125, 0.25)
+        glScalef(0.25, 0.125, 0.5)
+        drawCube()
+        glPopMatrix()
+
+        # end of right leg
+        glPopMatrix()
+
+        # end of main object
+        glPopMatrix()
+
+    # rest objects
+
+    # dog
     glPushMatrix()
+    glMaterialfv(GL_FRONT, GL_SPECULAR, (1., 1., 1., 1.))
+    glMaterialfv(GL_FRONT, GL_SHININESS, 10)
+    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, (0.729411764705882, 0.333333333333333, 0.827450980392157, 1.))
+
+    if np.linalg.norm(gDogCurrPos - gMainTrans[:3,3]) > 10.:
+        vec = (gDogCurrPos - gMainTrans[:3,3]) / np.linalg.norm(gDogCurrPos - gMainTrans[:3,3])
+        vec *= 10.
+        gDogCurrPos = gMainTrans[:3,3] + vec
+
+    # body
+    glPushMatrix()
+    glTranslatef(*gDogCurrPos)
+
+    # draw body
+    glPushMatrix()
+    glScalef(0.5, 0.5, 1.)
+    drawCube()
+    glPopMatrix()
+
+
+    # head
+    glPushMatrix()
+    glTranslatef(0., 1.175, .75)
+    glScalef(.675, .675, .675)
     drawSphere()
     glPopMatrix()
 
-    # rest objects
+    # front left leg
     glPushMatrix()
-    glTranslatef(5,0,0)
+    glTranslatef(.25, -.5, .7)
+    glRotatef(30*np.sin(20*t), 1, 0, 0)
+    glTranslatef(0., -.5, 0.)
+    glScalef(.125, .5, .125)
     drawCube()
+    glPopMatrix()
+
+    # front right leg
+    glPushMatrix()
+    glTranslatef(-.25, -.5, .7)
+    glRotatef(-30*np.sin(20*t), 1, 0, 0)
+    glTranslatef(0., -.5, 0.)
+    glScalef(.125, .5, .125)
+    drawCube()
+    glPopMatrix()
+
+    # back left leg
+    glPushMatrix()
+    glTranslatef(.25, -.5, -.5)
+    glRotatef(30*np.sin(20*t), 1, 0, 0)
+    glTranslatef(0., -.5, 0.)
+    glScalef(.125, .5, .125)
+    drawCube()
+    glPopMatrix()
+
+    # back right leg
+    glPushMatrix()
+    glTranslatef(-.25, -.5, -.5)
+    glRotatef(-30*np.sin(20*t), 1, 0, 0)
+    glTranslatef(0., -.5, 0.)
+    glScalef(.125, .5, .125)
+    drawCube()
+    glPopMatrix()
+
+    # end of body
+    glPopMatrix()
+
+    # end of dog
     glPopMatrix()
     
+
+    # snowman
     glPushMatrix()
-    glTranslatef(0,0,5)
-    drawCube()
+    glMaterialfv(GL_FRONT, GL_SPECULAR, (1., 1., 1., 1.))
+    glMaterialfv(GL_FRONT, GL_SHININESS, 10)
+    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, (1., 1., 1., 1.))
+    if np.linalg.norm(gDogCurrPos2 - gMainTrans[:3,3]) > 15.:
+        vec = (gDogCurrPos2 - gMainTrans[:3,3]) / np.linalg.norm(gDogCurrPos2 - gMainTrans[:3,3])
+        vec *= 15.
+        gDogCurrPos2 = gMainTrans[:3,3] + vec
+
+    glTranslatef(*gDogCurrPos2)
+
+    # draw body
+    glPushMatrix()
+    glScalef(2., 2., 2.)
+    drawSphere()
+    # end draw
     glPopMatrix()
+
+    # head
+    glPushMatrix()
+
+    glTranslatef(0., 3., 0.)
+    glScalef(1.5, 1.5, 1.5)
+    drawSphere()
+
+    # end of head
+    glPopMatrix()
+
+
+    # left arm
+    glPushMatrix()
+    glRotatef(45, 0, 0, 1)
+    glTranslatef(0., 2., 0.)
+    glRotatef(15*np.sin(5*t), 0, 0, -1)
+    glTranslatef(0., 1., 0.)
+    glScalef(.1, 1., .1)
+    drawCube()
+    # end of left arm
+    glPopMatrix()
+
+    # right arm
+    glPushMatrix()
+    glRotatef(45, 0, 0, -1)
+    glTranslatef(0., 2., 0.)
+    glRotatef(15*np.sin(5*t), 0, 0, 1)
+    glTranslatef(0., 1., 0.)
+    glScalef(.1, 1., .1)
+    drawCube()
+    # end of right arm
+    glPopMatrix()
+
+    # end of snowman
+    glPopMatrix()
+
 
     glDisable(GL_LIGHTING)
 
@@ -252,7 +672,9 @@ def main():
 
             gPrevPos = currPos
 
-        render()
+        t = glfw.get_time()
+
+        render(t)
 
         glfw.swap_buffers(window)
 
