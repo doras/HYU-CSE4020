@@ -4,13 +4,6 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 import math
 
-gAzimuth = np.radians(45)
-gElevation = np.radians(45)
-gDistance = 5.
-gMouseMode = 0 # 0 : no mode, 1 : Left click mode, 2 : Right click mode
-gPrevPos = None
-gAt = np.zeros(3)
-gScrollBuf = 0.
 gSphereVarr = None # actual normal array for Sphere with duplicate for glDrawArrays function
 gSphereNarr = None # vertex array for Sphere with duplicate for glDrawArrays function
 gCubeVarr = None # actual normal array for Cube with duplicate for glDrawArrays function
@@ -24,7 +17,7 @@ gMainTrans = np.identity(4)
 gRecentMove = np.zeros(4)
 gP = (np.zeros(3), np.zeros(3), np.zeros(3), np.zeros(3))
 
-gViewMode = 0 # 0 is mouse, 1 is FPS, 2 is Quarter
+gViewMode = 0 # 0 is FPS, 1 is Quarter
 
 def drawSphere():
     global gSphereVarr, gSphereNarr
@@ -102,35 +95,6 @@ def openObj(path):
 
     return (varrdup, narr)
 
-
-def scroll_callback(window, xoffset, yoffset):
-    global gDistance, gScrollBuf
-
-    if yoffset > 10:
-        yoffset = 10
-    elif yoffset < -10:
-        yoffset = -10
-
-
-    gScrollBuf += yoffset
-    gDistance *= 0.995 ** int(gScrollBuf / .1)
-    gScrollBuf -= int(gScrollBuf / .1) * .1
-
-
-def mouse_button_callback(window, button, action, mods):
-    global gAzimuth, gElevation, gMouseMode, gPrevPos
-    if action==glfw.PRESS and gMouseMode==0:
-        if button==glfw.MOUSE_BUTTON_LEFT:
-            gMouseMode = 1
-            gPrevPos = glfw.get_cursor_pos(window)
-        if button==glfw.MOUSE_BUTTON_RIGHT:
-            gMouseMode = 2
-            gPrevPos = glfw.get_cursor_pos(window)
-    else:
-        if button==glfw.MOUSE_BUTTON_LEFT and gMouseMode==1:
-            gMouseMode = 0
-        if button==glfw.MOUSE_BUTTON_RIGHT and gMouseMode==2:
-            gMouseMode = 0
 
 def key_callback(window, key, scancode, action, mods):
     global gMainTrans, gViewMode, gRecentMove
@@ -313,29 +277,11 @@ def key_callback(window, key, scancode, action, mods):
                                                 [0., 0., -1., 0.],
                                                 [0., 0., 0., 1.]])
         elif key==glfw.KEY_0:
-            gViewMode = (gViewMode + 1) % 3
-
-
-def drawGrid():
-    global gAt, gDistance
-
-    dist = max(int(gDistance), 100)
-
-    target = (int(gAt[0]), int(gAt[2]))
-
-    varr1 = np.array(list(((-dist + target[0], 0, x), (dist + target[0], 0, x)) for x in range(-dist + target[1], dist + target[1])), 'float32')
-    varr2 = np.array(list(((x, 0, -dist + target[1]), (x, 0, dist + target[1])) for x in range(-dist + target[0], dist + target[0])), 'float32')
-
-    glColor3ub(255,255,255)
-    glEnableClientState(GL_VERTEX_ARRAY)
-    glVertexPointer(3, GL_FLOAT, 3 * varr1.itemsize, varr1)
-    glDrawArrays(GL_LINES, 0, int(varr1.size / 3))
-    glVertexPointer(3, GL_FLOAT, 3 * varr2.itemsize, varr2)
-    glDrawArrays(GL_LINES, 0, int(varr2.size / 3))
+            gViewMode = not gViewMode
     
 
 def render(t):
-    global gAzimuth, gElevation, gDistance, gAt, gMainTrans, gDogCurrPos, gSnowPos, gViewMode, gSnowMode, gCollideTime, gP
+    global gMainTrans, gDogCurrPos, gSnowPos, gViewMode, gSnowMode, gCollideTime, gP
 
     glPolygonMode( GL_FRONT_AND_BACK, GL_FILL )
 
@@ -352,24 +298,16 @@ def render(t):
     glLoadIdentity()
 
     if gViewMode == 0:
-        eyePoint = (gDistance*np.cos(gElevation)*np.sin(gAzimuth),gDistance*np.sin(gElevation),gDistance*np.cos(gElevation)*np.cos(gAzimuth)) + gAt
-
-        gluLookAt(*(eyePoint),
-                *(gAt),
-                0,1*(1 - 2 * (np.cos(gElevation) < 0)),0)
-    elif gViewMode == 1:
         lookMatrix = (gMainTrans @ np.array([[0.,0.,0.],
                                             [0.,0.,1.],
                                             [0.,1.,0.],
                                             [1.,1.,0.]]))[:3]
         gluLookAt(*lookMatrix.T.reshape(9))
-    elif gViewMode == 2:
+    else:
         targetPoint = (gMainTrans @ np.array([0.,0.,0.,1.]))[:3]
-        eyePoint = targetPoint + np.array([10.,10.,10.])
+        eyePoint = targetPoint + np.array([20.,20.,20.])
         gluLookAt(*eyePoint, *targetPoint, 0, 1, 0)
 
-
-    drawGrid()
 
     # Lighting and Shading is used.
     glEnable(GL_LIGHTING)
@@ -392,7 +330,7 @@ def render(t):
 
 
     # main object
-    if gViewMode != 1:
+    if gViewMode != 0:
 
         glMaterialfv(GL_FRONT, GL_SPECULAR, (1., 1., 1., 1.))
         glMaterialfv(GL_FRONT, GL_SHININESS, 10)
@@ -656,7 +594,7 @@ def render(t):
 
     
 def main():
-    global gPrevPos, gAzimuth, gElevation, gMouseMode, gAt, gSphereVarr, gSphereNarr, gCubeVarr, gCubeNarr
+    global gSphereVarr, gSphereNarr, gCubeVarr, gCubeNarr
 
     if not glfw.init():
         return
@@ -667,8 +605,6 @@ def main():
 
     glfw.make_context_current(window)
     glfw.swap_interval(1)
-    glfw.set_mouse_button_callback(window, mouse_button_callback)
-    glfw.set_scroll_callback(window, scroll_callback)
     glfw.set_key_callback(window, key_callback)
 
     gSphereVarr, gSphereNarr = openObj("sphere-tri.obj")
@@ -676,24 +612,6 @@ def main():
 
     while not glfw.window_should_close(window):
         glfw.poll_events()
-
-        if gMouseMode == 1:
-            currPos = glfw.get_cursor_pos(window)
-            gAzimuth += .01 * (gPrevPos[0] - currPos[0])
-            gElevation += .01 * (currPos[1] - gPrevPos[1])
-            gPrevPos = currPos
-        elif gMouseMode == 2:
-            currPos = glfw.get_cursor_pos(window)
-
-            w = np.array([np.cos(gElevation)*np.sin(gAzimuth),np.sin(gElevation),np.cos(gElevation)*np.cos(gAzimuth)])
-            w = w / np.sqrt(w @ w)
-            u = np.cross((0,1*(1 - 2 * (np.cos(gElevation) < 0)),0), w)
-            u = u / np.sqrt(u @ u)
-            v = np.cross(w, u)
-
-            gAt += max(5, gDistance) * .001 * (gPrevPos[0] - currPos[0]) * u + max(5, gDistance) * .001 * (currPos[1] - gPrevPos[1]) * v
-
-            gPrevPos = currPos
 
         t = glfw.get_time()
 
