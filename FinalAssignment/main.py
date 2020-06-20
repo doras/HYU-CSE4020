@@ -17,8 +17,12 @@ gCubeVarr = None # actual normal array for Cube with duplicate for glDrawArrays 
 gCubeNarr = None # vertex array for Cube with duplicate for glDrawArrays function
 
 gDogCurrPos = np.array([10., 0., 0.])
-gDogCurrPos2 = np.array([0., 0., 15.])
+gSnowPos = np.array([0., 0., 15.])
+gSnowMode = 0 # 0 for stop, 1 for bounced
+gCollideTime = None
 gMainTrans = np.identity(4)
+gRecentMove = np.zeros(4)
+gP = (np.zeros(3), np.zeros(3), np.zeros(3), np.zeros(3))
 
 gViewMode = 0 # 0 is mouse, 1 is FPS, 2 is Quarter
 
@@ -129,38 +133,44 @@ def mouse_button_callback(window, button, action, mods):
             gMouseMode = 0
 
 def key_callback(window, key, scancode, action, mods):
-    global gMainTrans, gViewMode
+    global gMainTrans, gViewMode, gRecentMove
     if action==glfw.PRESS or action==glfw.REPEAT:
         if key==glfw.KEY_Q:
             gMainTrans = gMainTrans @ np.array([[1., 0., 0., -1.],
                                                 [0., 1., 0., 0.],
                                                 [0., 0., 1., 0.],
                                                 [0., 0., 0., 1.]])
+            gRecentMove = np.array([-1., 0., 0., 0.])
         elif key==glfw.KEY_W:
             gMainTrans = gMainTrans @ np.array([[1., 0., 0., 1.],
                                                 [0., 1., 0., 0.],
                                                 [0., 0., 1., 0.],
                                                 [0., 0., 0., 1.]])
+            gRecentMove = np.array([1., 0., 0., 0.])
         elif key==glfw.KEY_A:
             gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
                                                 [0., 1., 0., -1.],
                                                 [0., 0., 1., 0.],
                                                 [0., 0., 0., 1.]])
+            gRecentMove = np.array([0., -1., 0., 0.])
         elif key==glfw.KEY_S:
             gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
                                                 [0., 1., 0., 1.],
                                                 [0., 0., 1., 0.],
                                                 [0., 0., 0., 1.]])
+            gRecentMove = np.array([0., 1., 0., 0.])
         elif key==glfw.KEY_Z:
             gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
                                                 [0., 1., 0., 0.],
                                                 [0., 0., 1., -1.],
                                                 [0., 0., 0., 1.]])
+            gRecentMove = np.array([0., 0., -1., 0.])
         elif key==glfw.KEY_X:
             gMainTrans = gMainTrans @ np.array([[1., 0., 0., 0.],
                                                 [0., 1., 0., 0.],
                                                 [0., 0., 1., 1.],
                                                 [0., 0., 0., 1.]])
+            gRecentMove = np.array([0., 0., 1., 0.])
         elif key==glfw.KEY_E:
             ang = np.radians(-10)
             gMainTrans = gMainTrans @ np.array([[1., 0.,           0.,          0.],
@@ -325,7 +335,7 @@ def drawGrid():
     
 
 def render(t):
-    global gAzimuth, gElevation, gDistance, gAt, gMainTrans, gDogCurrPos, gDogCurrPos2, gViewMode
+    global gAzimuth, gElevation, gDistance, gAt, gMainTrans, gDogCurrPos, gSnowPos, gViewMode, gSnowMode, gCollideTime, gP
 
     glPolygonMode( GL_FRONT_AND_BACK, GL_FILL )
 
@@ -578,12 +588,25 @@ def render(t):
     glMaterialfv(GL_FRONT, GL_SPECULAR, (1., 1., 1., 1.))
     glMaterialfv(GL_FRONT, GL_SHININESS, 10)
     glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, (1., 1., 1., 1.))
-    if np.linalg.norm(gDogCurrPos2 - gMainTrans[:3,3]) > 15.:
-        vec = (gDogCurrPos2 - gMainTrans[:3,3]) / np.linalg.norm(gDogCurrPos2 - gMainTrans[:3,3])
-        vec *= 15.
-        gDogCurrPos2 = gMainTrans[:3,3] + vec
 
-    glTranslatef(*gDogCurrPos2)
+    if gSnowMode == 1:
+        if t - gCollideTime < 1.:
+            param = t - gCollideTime
+            p0, p1, p2, p3 = gP
+            gSnowPos = (-p0 + 3*p1 - 3*p2 + p3) * param**3 + (3*p0 - 6*p1 + 3*p2) * param**2 + (-3*p0 + 3*p1) * param + p0
+        else:
+            gSnowMode = 0
+    elif np.linalg.norm(gSnowPos - gMainTrans[:3,3]) <= 5:
+        movement = gMainTrans @ gRecentMove
+        p0 = gSnowPos
+        p3 = gSnowPos + movement[:3] * 20
+        p1 = p0 * 0.75 + p3 * 0.25 + (gMainTrans @ np.array([0., 10., 0., 0.]))[:3]
+        p2 = p0 * 0.25 + p3 * 0.75 + (gMainTrans @ np.array([0., 10., 0., 0.]))[:3]
+        gP = (p0, p1, p2, p3)
+        gCollideTime = t
+        gSnowMode = 1
+
+    glTranslatef(*gSnowPos)
 
     # draw body
     glPushMatrix()
@@ -602,7 +625,7 @@ def render(t):
     # end of head
     glPopMatrix()
 
-
+    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, (0.545098039215686, 0.270588235294118, 0.074509803921569, 1.))
     # left arm
     glPushMatrix()
     glRotatef(45, 0, 0, 1)
